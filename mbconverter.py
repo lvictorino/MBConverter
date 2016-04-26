@@ -3,27 +3,31 @@ import sys
 import json
 from shutil import copyfile, rmtree
 
-#Extracted from http://demo.business-geografic.com/osm/tilemap.xml
-zoom_upp = [ 156543.033928,
-             78271.516964,
-             39135.758482,
-             19567.879241,
-             9783.939621,
-             4891.969810,
-             2445.984905,
-             1222.992453,
-             611.496226,
-             305.748113,
-             152.874057,
-             76.4370282714844,
-             38.2185141357422,
-             19.1092570678711,
-             9.55462853393555,
-             4.77731426696777,
-             2.38865713348389,
-             1.19432856674194,
-             0.59716428337097,
-             0.29858214169741 ]
+# Extracted from http://demo.business-geografic.com/osm/tilemap.xml
+# Distance in meter by zoom levels for every tile pixels.
+zoom_upp = [ 156543.033928, # 0
+             78271.516964,  # 1
+             39135.758482,  # 2
+             19567.879241,  # 3
+             9783.939621,   # 4
+             4891.969810,   # 5
+             2445.984905,   # 6
+             1222.992453,   # 7
+             611.496226,    # 8
+             305.748113,    # 9
+             152.874057,    # 10
+             76.4370282714844, # 11
+             38.2185141357422, # 12
+             19.1092570678711, # 13
+             9.55462853393555, # 14
+             4.77731426696777, # 15
+             2.38865713348389, # 16
+             1.19432856674194, # 17
+             0.59716428337097, # 18
+             0.29858214169741 ]# 19
+# OSM World Origin
+osm_origin = { 'x': -20037508.34, 'y': 20037508.34 }
+####################################################################
 
 tile_size = 256
 
@@ -49,9 +53,9 @@ def add_zero(val):
 # Convert the tile index (x,y) into world coordinates (in meter)
 def compute_world_position(z, x, y):
     upp = zoom_upp[z] * tile_size
-    world_x = upp * x + upp / 2
-    world_y = upp * y + upp / 2
-    return { 'zoom': z, 'coord_x': world_x, 'coord_y': world_y, 'offset': upp }
+    world_x = osm_origin['x'] + upp * x + upp / 2
+    world_y = osm_origin['y'] - upp * y - upp / 2 # Y coords are inverted 0 is top left
+    return { 'coord_x': world_x, 'coord_y': world_y, 'offset': upp }
 
 # Convert a dictionary to JSON and write it into a file at a given path
 def save_json(path, props):
@@ -89,7 +93,7 @@ for zoom_dir in get_sorted_directories():
         x = x + 1
 
     # Write props (x;y) as json file.
-    save_json('dump/'+zoom_dir+'/props.json', dict( { 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
+    save_json('dump/'+zoom_dir+'/props.json', dict( { 'zoom': int(zoom_dir), 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
     file_count = x * len(png_files)
     print str( file_count ) + ' files written.'
     total += file_count
