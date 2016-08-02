@@ -53,7 +53,7 @@ def compute_world_position(z, x, y):
     upp = zoom_upp[z] * tile_size
     world_x = osm_origin['x'] + upp * x + upp / 2
     world_y = osm_origin['y'] - upp * y - upp / 2 # Y coords are inverted 0 is top left
-    return { 'coord_x': world_x, 'coord_y': world_y, 'offset': upp }
+    return { '_coord_x': world_x, '_coord_y': world_y, '_offset': upp }
 
 def save_zoom_props(p, props):
     with open(p,'w') as f:
@@ -76,7 +76,7 @@ os.mkdir(dst_dir)
 
 total = 0
 
-mapdict = { 'layers': [], 'zooms': [] }
+mapdict = { '_layers': [], '_zooms': [] }
 for zoom_dir in get_sorted_directories(src_dir):
     dir_name = path.basename(zoom_dir)
     os.mkdir(dst_dir + dir_name)
@@ -105,8 +105,8 @@ for zoom_dir in get_sorted_directories(src_dir):
         x = x + 1
 
     # Add layer props to mapdict
-    mapdict['layers'].append(dict( { 'zoom': int(dir_name), 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
-    mapdict['zooms'].append(int(dir_name))
+    mapdict['_layers'].append(dict( { '_zoom': int(dir_name), '_count_x': x, '_count_y': len(png_files) }.items() + world_pos.items() ) )
+    mapdict['_zooms'].append(int(dir_name))
 
     # Update file_count and print
     file_count = x * len(png_files)
