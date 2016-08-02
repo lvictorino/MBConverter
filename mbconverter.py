@@ -65,10 +65,10 @@ def compute_world_position(z, x, y):
     return { 'coord_x': world_x, 'coord_y': world_y, 'offset': upp }
 
 # Convert a dictionary to JSON and write it into a file at a given path
-def save_json(path, props):
+'''def save_json(path, props):
     with open(path, 'w') as f:
         f.write( json.dumps(props) )
-
+'''
 def save_zoom_props(path, props):
     with open(path,'w') as f:
         f.write( json.dumps(props) )
@@ -81,7 +81,8 @@ if os.path.exists('dump') :
 os.mkdir('dump')
 
 total = 0
-zooms = []
+
+mapdict = { 'layers': [], 'zooms': [] }
 for zoom_dir in get_sorted_directories():
     os.mkdir('dump/' + zoom_dir)
     print 'operating on zoom level ' + zoom_dir
@@ -102,14 +103,17 @@ for zoom_dir in get_sorted_directories():
         x = x + 1
 
     # Write props (x;y) as json file.
-    save_json('dump/'+zoom_dir+'/props.json', dict( { 'zoom': int(zoom_dir), 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
-    zooms.append(int(zoom_dir))
+    mapdict['layers'].append(dict( { 'zoom': int(zoom_dir), 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
+    mapdict['zooms'].append(int(zoom_dir))
     file_count = x * len(png_files)
     print str( file_count ) + ' files written.'
     total += file_count
 
-save_zoom_props('dump/zooms.json', dict( { 'zooms': zooms } ))
-    
+#save_zoom_props('dump/zooms.json', dict( { 'zooms': zooms } ))
+
+with open('dump/mapprops.json','w') as f:
+    f.write( json.dumps(mapdict) )
+
 print '----------------'
 print 'Total: ' + str(total) + ' files written.'
 
