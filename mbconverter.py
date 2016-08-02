@@ -1,15 +1,17 @@
 import os
+from os import path
+import glob
 import sys
 import json
 from shutil import copyfile, rmtree
 
-# MBConverter is an utility tool to reorder `MBTiles` files into **X/Y** hierarchy.
-# Start MBConverter in your `MBTiles` directory. (created thanks to tools like mbutils)
-# A 'dump' directory will be created containing sub directories representing zoom levels.
-# Every zoom directory will contain files named **XXX_YYY.png** with `X:0` and `Y:0` on the bottom left.
-# A JSON files named `props.json` which contains the zoom level size will also be created in every zoom directory.
+# MBConverter is an utility tool to reorder `MBTiles` files into X;Y hierarchy.
+# Start MBConverter passing in your `MBTiles` directory and the output directory.
+# The output directory (created if needed) will contain sub directories representing zoom levels.
+# Every zoom level directory will contain files named **XXX_YYY.png** with `X:0` and `Y:0` placed on the bottom left.
+# A JSON files `mapprops.json` containing the zoom levels, sizes, and properties will be created in the output directory.
 
-
+####################################################################
 # Extracted from http://demo.business-geografic.com/osm/tilemap.xml
 # Distance in meter by zoom levels for every tile pixels.
 zoom_upp = [ 156543.033928, # 0
@@ -39,23 +41,12 @@ osm_origin = { 'x': -20037508.34, 'y': 20037508.34 }
 tile_size = 256
 
 # Returned a directory list, sorted alphabetically, for a given path
-def get_sorted_directories(path=''):
-    complete_path = os.getcwd() + '/'
-    if path is not '':
-        complete_path = complete_path + '/' + path + '/'
-    
-    directories=sorted([d for d in os.listdir(complete_path) if os.path.isdir(complete_path + d) and d != 'dump' ])
+def get_sorted_directories(p=''):
+    if p is '':
+        p = os.getcwd() + '/'
+        
+    directories=sorted([path.normpath(d) for d in glob.glob(p + '/*') if path.isdir(d)])
     return directories
-
-# Convert int to string and add up to two zeros before if needed
-# 42 will become '042', 7 will become '007'... etc.
-def add_zero(val):
-    val_str = str(val)
-    if val < 10:
-        val_str = '00' + str(val)
-    elif val < 100:
-        val_str = '0' + str(val)
-    return val_str
     
 # Convert the tile index (x,y) into world coordinates (in meter)
 def compute_world_position(z, x, y):
@@ -64,54 +55,66 @@ def compute_world_position(z, x, y):
     world_y = osm_origin['y'] - upp * y - upp / 2 # Y coords are inverted 0 is top left
     return { 'coord_x': world_x, 'coord_y': world_y, 'offset': upp }
 
-# Convert a dictionary to JSON and write it into a file at a given path
-'''def save_json(path, props):
-    with open(path, 'w') as f:
-        f.write( json.dumps(props) )
-'''
-def save_zoom_props(path, props):
-    with open(path,'w') as f:
+def save_zoom_props(p, props):
+    with open(p,'w') as f:
         f.write( json.dumps(props) )
     
 # ----------------------------------------------------------------------------
 
-# Delete dump directory
-if os.path.exists('dump') :
-    rmtree('dump')
-os.mkdir('dump')
+if len(sys.argv) < 3:
+    print 'Error: not enough arguments.'
+    print 'Usage: mbconverter.py mbtiles_dir destination_dir'
+    sys.exit(0)
+
+src_dir = sys.argv[1] + '/'
+dst_dir = sys.argv[2] + '/'
+    
+# Delete destination directory if needed
+if path.exists(dst_dir) :
+    rmtree(dst_dir)
+os.mkdir(dst_dir)
 
 total = 0
 
 mapdict = { 'layers': [], 'zooms': [] }
-for zoom_dir in get_sorted_directories():
-    os.mkdir('dump/' + zoom_dir)
-    print 'operating on zoom level ' + zoom_dir
+for zoom_dir in get_sorted_directories(src_dir):
+    dir_name = path.basename(zoom_dir)
+    os.mkdir(dst_dir + dir_name)
+    print 'operating on zoom level ' + dir_name
     x = 0
+
+    
     for tile_dir in get_sorted_directories(zoom_dir):
-        path = os.getcwd() + '/' + zoom_dir + '/' + tile_dir + '/'
+
         # Keep only png files
-        png_files = sorted([f for f in os.listdir(path) if f.endswith('.png')])
+        png_files = sorted([f for f in os.listdir(tile_dir) if f.endswith('.png')])
+
         y = len(png_files) - 1
         for f in png_files:
-            x_str = add_zero(x)
-            y_str = add_zero(y)
-            # Copy and rename original file to dump directory
-            copyfile( path + f, 'dump/' + zoom_dir + '/' + x_str + "_" + y_str + ".png" )
+            x_str = '%03d' % x
+            y_str = '%03d' % y
+
+            # Copy and rename original file to destination directory
+            copyfile( path.normpath(tile_dir + '/' + f), path.normpath(dst_dir + dir_name + '/' + x_str + "_" + y_str + ".png") )
+
+            # Use the first tile to compute world position
             if x == 0 and y == 0:
-                world_pos = compute_world_position(int(zoom_dir), int(tile_dir), int(os.path.splitext(f)[0]))
+                world_pos = compute_world_position(int(dir_name), int(path.basename(tile_dir)), int(path.splitext(f)[0]))
+            
             y = y - 1
         x = x + 1
 
-    # Write props (x;y) as json file.
-    mapdict['layers'].append(dict( { 'zoom': int(zoom_dir), 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
-    mapdict['zooms'].append(int(zoom_dir))
+    # Add layer props to mapdict
+    mapdict['layers'].append(dict( { 'zoom': int(dir_name), 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
+    mapdict['zooms'].append(int(dir_name))
+
+    # Update file_count and print
     file_count = x * len(png_files)
-    print str( file_count ) + ' files written.'
+    print '> ' + str( file_count ) + ' files written.'
     total += file_count
 
-#save_zoom_props('dump/zooms.json', dict( { 'zooms': zooms } ))
-
-with open('dump/mapprops.json','w') as f:
+# Write mapdict as a JSON file in destination directory
+with open(dst_dir + 'mapprops.json','w') as f:
     f.write( json.dumps(mapdict) )
 
 print '----------------'
