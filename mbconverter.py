@@ -3,6 +3,13 @@ import sys
 import json
 from shutil import copyfile, rmtree
 
+# MBConverter is an utility tool to reorder `MBTiles` files into **X/Y** hierarchy.
+# Start MBConverter in your `MBTiles` directory. (created thanks to tools like mbutils)
+# A 'dump' directory will be created containing sub directories representing zoom levels.
+# Every zoom directory will contain files named **XXX_YYY.png** with `X:0` and `Y:0` on the bottom left.
+# A JSON files named `props.json` which contains the zoom level size will also be created in every zoom directory.
+
+
 # Extracted from http://demo.business-geografic.com/osm/tilemap.xml
 # Distance in meter by zoom levels for every tile pixels.
 zoom_upp = [ 156543.033928, # 0
@@ -59,20 +66,22 @@ def compute_world_position(z, x, y):
 
 # Convert a dictionary to JSON and write it into a file at a given path
 def save_json(path, props):
-    f = open(path, 'w')
-    f.write( json.dumps(props) )
-    f.close()
+    with open(path, 'w') as f:
+        f.write( json.dumps(props) )
 
+def save_zoom_props(path, props):
+    with open(path,'w') as f:
+        f.write( json.dumps(props) )
+    
+# ----------------------------------------------------------------------------
 
-
-
-
+# Delete dump directory
 if os.path.exists('dump') :
     rmtree('dump')
 os.mkdir('dump')
 
 total = 0
-
+zooms = []
 for zoom_dir in get_sorted_directories():
     os.mkdir('dump/' + zoom_dir)
     print 'operating on zoom level ' + zoom_dir
@@ -94,10 +103,13 @@ for zoom_dir in get_sorted_directories():
 
     # Write props (x;y) as json file.
     save_json('dump/'+zoom_dir+'/props.json', dict( { 'zoom': int(zoom_dir), 'count_x': x, 'count_y': len(png_files) }.items() + world_pos.items() ) )
+    zooms.append(int(zoom_dir))
     file_count = x * len(png_files)
     print str( file_count ) + ' files written.'
     total += file_count
 
+save_zoom_props('dump/zooms.json', dict( { 'zooms': zooms } ))
+    
 print '----------------'
 print 'Total: ' + str(total) + ' files written.'
 
