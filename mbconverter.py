@@ -77,10 +77,14 @@ os.mkdir(dst_dir)
 total = 0
 
 mapdict = { '_layers': [], '_zooms': [] }
+maxzoom = int(path.basename(get_sorted_directories(src_dir)[-1]))
+
 for zoom_dir in get_sorted_directories(src_dir):
-    dir_name = path.basename(zoom_dir)
-    os.mkdir(dst_dir + dir_name)
-    print 'operating on zoom level ' + dir_name
+    oldzoom = int(path.basename(zoom_dir))
+    newzoom = abs(oldzoom - maxzoom)
+
+    os.mkdir(dst_dir + str(newzoom))
+    print 'operating on zoom level ' + str(oldzoom) + " (->" + str(newzoom) + ")"
     x = 0
 
     
@@ -95,18 +99,18 @@ for zoom_dir in get_sorted_directories(src_dir):
             y_str = '%03d' % y
 
             # Copy and rename original file to destination directory
-            copyfile( path.normpath(tile_dir + '/' + f), path.normpath(dst_dir + dir_name + '/' + x_str + "_" + y_str + ".png") )
+            copyfile( path.normpath(tile_dir + '/' + f), path.normpath(dst_dir + str(newzoom) + '/' + x_str + "_" + y_str + ".png") )
 
             # Use the first tile to compute world position
             if x == 0 and y == 0:
-                world_pos = compute_world_position(int(dir_name), int(path.basename(tile_dir)), int(path.splitext(f)[0]))
+                world_pos = compute_world_position(oldzoom, int(path.basename(tile_dir)), int(path.splitext(f)[0]))
             
             y = y - 1
         x = x + 1
 
     # Add layer props to mapdict
-    mapdict['_layers'].append(dict( { '_zoom': int(dir_name), '_count_x': x, '_count_y': len(png_files) }.items() + world_pos.items() ) )
-    mapdict['_zooms'].append(int(dir_name))
+    mapdict['_layers'].append(dict( { '_zoom': newzoom, '_count_x': x, '_count_y': len(png_files) }.items() + world_pos.items() ) )
+    mapdict['_zooms'].append(newzoom)
 
     # Update file_count and print
     file_count = x * len(png_files)
